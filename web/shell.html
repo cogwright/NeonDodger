@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Neon Dodger</title>
+<link rel="icon" href="data:,">
+<style>
+	html, body {
+		margin: 0;
+		padding: 0;
+		height: 100%;
+		overflow: hidden;
+		background: #06070e;
+	}
+	canvas {
+		display: block;
+		width: 100vw;
+		/* dvh tracks the real viewport when mobile Safari's URL bar collapses */
+		height: 100vh;
+		height: 100dvh;
+		background: #06070e;
+		outline: none;
+		touch-action: none;
+	}
+	#loader {
+		position: fixed;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 14px;
+		background: radial-gradient(circle at 50% 40%, #0b0e1e 0%, #06070e 70%);
+		transition: opacity 0.5s;
+	}
+	#loader.hidden {
+		opacity: 0;
+		pointer-events: none;
+	}
+	#loadtitle {
+		color: #40ffe0;
+		font-family: Arial, Helvetica, sans-serif;
+		font-size: clamp(28px, 5vw, 56px);
+		font-weight: bold;
+		letter-spacing: 0.12em;
+		text-shadow: 0 0 18px rgba(64, 255, 224, 0.55);
+	}
+	#loadstatus {
+		color: #7d90b4;
+		font-family: Arial, Helvetica, sans-serif;
+		font-size: 14px;
+		min-height: 1.2em;
+	}
+	#fsbtn {
+		position: fixed;
+		right: 14px;
+		bottom: 12px;
+		padding: 6px 12px;
+		background: transparent;
+		color: #40ffe0;
+		border: 1px solid rgba(64, 255, 224, 0.35);
+		border-radius: 3px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-size: 11px;
+		letter-spacing: 0.15em;
+		cursor: pointer;
+		opacity: 0.45;
+		transition: opacity 0.2s;
+	}
+	#fsbtn:hover {
+		opacity: 1;
+	}
+	body.fs #fsbtn {
+		display: none;
+	}
+	#errpanel {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		max-height: 45%;
+		overflow-y: auto;
+		padding: 8px 10px;
+		background: rgba(10, 4, 8, 0.92);
+		color: #ff7aa8;
+		font-family: monospace;
+		font-size: 11px;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-break: break-all;
+		z-index: 10;
+	}
+</style>
+</head>
+<body>
+<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+<div id="loader">
+	<div id="loadtitle">NEON DODGER</div>
+	<div id="loadstatus">loading</div>
+</div>
+<button id="fsbtn">FULLSCREEN</button>
+<script>
+	// On-page diagnostics: errors always appear in a panel (phones have no
+	// visible console); add ?debug to the URL to mirror regular logs too.
+	(function() {
+		var panel = null;
+		function show(line) {
+			if (!panel) {
+				panel = document.createElement('div');
+				panel.id = 'errpanel';
+				document.body.appendChild(panel);
+			}
+			panel.appendChild(document.createTextNode(line + '\n'));
+		}
+		window.showErrorLine = show;
+		var joined = function(args) { return Array.prototype.join.call(args, ' '); };
+		var olderr = console.error.bind(console);
+		console.error = function() { olderr.apply(null, arguments); show('ERR ' + joined(arguments)); };
+		window.addEventListener('error', function(e) {
+			show('EXC ' + e.message + ' (' + (e.filename || '') + ':' + (e.lineno || 0) + ')');
+		});
+		window.addEventListener('unhandledrejection', function(e) {
+			show('REJ ' + e.reason);
+		});
+		if (new URLSearchParams(location.search).has('debug')) {
+			var oldlog = console.log.bind(console);
+			console.log = function() { oldlog.apply(null, arguments); show(joined(arguments)); };
+		}
+	})();
+
+	var Module = {
+		canvas: (function() {
+			var c = document.getElementById('canvas');
+			c.addEventListener('webglcontextlost', function(e) {
+				e.preventDefault();
+				location.reload();
+			}, false);
+			// iOS Safari has no Pointer Lock API; the GLFW glue calls these
+			// unconditionally, so give it no-ops instead of a TypeError.
+			if (!c.requestPointerLock) c.requestPointerLock = function() {};
+			if (!document.exitPointerLock) document.exitPointerLock = function() {};
+			return c;
+		})(),
+		print: function(text) { if (text != null) console.log(text); },
+		printErr: function(text) { if (text != null) console.error(text); },
+		setStatus: function(text) {
+			var s = document.getElementById('loadstatus');
+			if (s) s.textContent = text || '';
+		},
+		onRuntimeInitialized: function() {
+			document.getElementById('loader').classList.add('hidden');
+		}
+	};
+	window.onerror = function() {
+		Module.setStatus('something broke, check the browser console');
+	};
+	if (document.getElementById('canvas').requestFullscreen) {
+		document.getElementById('fsbtn').addEventListener('click', function() {
+			document.getElementById('canvas').requestFullscreen();
+		});
+	} else {
+		// no Fullscreen API on iOS Safari canvases
+		document.getElementById('fsbtn').style.display = 'none';
+	}
+	document.addEventListener('fullscreenchange', function() {
+		document.body.classList.toggle('fs', !!document.fullscreenElement);
+	});
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

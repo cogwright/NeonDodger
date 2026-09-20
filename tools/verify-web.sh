@@ -15,10 +15,11 @@ export PLAYWRIGHT_BROWSERS_PATH="$GLIST_ROOT/playwright-browsers"
 
 glist_use_node
 
-[[ -f "$GLIST_DIST_DIR/index.html" ]] || {
+# BASE_URL checks a deployed site instead, so dist only has to exist locally.
+if [[ -z "${BASE_URL:-}" && ! -f "$GLIST_DIST_DIR/index.html" ]]; then
 	echo "no build in $GLIST_DIST_DIR, run tools/build-web.sh first" >&2
 	exit 1
-}
+fi
 
 if [[ ! -d "$NODE_ROOT/node_modules/playwright" ]]; then
 	glist_say "installing playwright into $NODE_ROOT"

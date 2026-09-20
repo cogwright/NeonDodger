@@ -101,6 +101,7 @@ private:
 	bool keyleft, keyright, keyup, keydown;
 	bool firemouse, firekey;
 	bool touchmode;
+	bool followmouse;
 	int movefinger, shootfinger;
 
 	std::vector<Enemy> enemies;

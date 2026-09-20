@@ -39,6 +39,7 @@ gCanvas::gCanvas(gApp* root) : gBaseCanvas(root) {
 	keyleft = keyright = keyup = keydown = false;
 	firemouse = firekey = false;
 	touchmode = false;
+	followmouse = true;
 	movefinger = shootfinger = -1;
 	spawntimer = 0.0f;
 	firetimer = 0.0f;
@@ -91,6 +92,7 @@ void gCanvas::startGame() {
 	shake = 0.0f;
 	firemouse = firekey = false;
 	movefinger = shootfinger = -1;
+	followmouse = true;
 	joyoffset = glm::vec2(0.0f);
 	targetid = -1;
 	enemies.clear();
@@ -160,7 +162,7 @@ void gCanvas::updatePlayer(float dt) {
 		if (movefinger != -1) {
 			playervel += joyoffset * (JOY_ACCEL / JOY_RADIUS) * dt;
 		}
-	} else {
+	} else if (followmouse) {
 		playervel += (mousepos - playerpos) * 18.0f * dt;
 	}
 	playervel *= std::pow(0.86f, dt * 60.0f);
@@ -651,6 +653,11 @@ void gCanvas::drawHud() {
 }
 
 void gCanvas::keyPressed(int key) {
+	// the keyboard takes over steering until the cursor is moved again
+	if (key == G_KEY_A || key == G_KEY_W || key == G_KEY_S || key == G_KEY_D ||
+	    key == G_KEY_LEFT || key == G_KEY_RIGHT || key == G_KEY_UP || key == G_KEY_DOWN) {
+		followmouse = false;
+	}
 	if (key == G_KEY_A || key == G_KEY_LEFT) keyleft = true;
 	else if (key == G_KEY_D || key == G_KEY_RIGHT) keyright = true;
 	else if (key == G_KEY_W || key == G_KEY_UP) keyup = true;
@@ -676,12 +683,16 @@ void gCanvas::charPressed(unsigned int codepoint) {
 // so once real touch input shows up the mouse callbacks go quiet for good.
 void gCanvas::mouseMoved(int x, int y) {
 	if (touchmode) return;
-	mousepos = glm::vec2(x, y);
+	glm::vec2 p(x, y);
+	if (p != mousepos) followmouse = true;
+	mousepos = p;
 }
 
 void gCanvas::mouseDragged(int x, int y, int button) {
 	if (touchmode) return;
-	mousepos = glm::vec2(x, y);
+	glm::vec2 p(x, y);
+	if (p != mousepos) followmouse = true;
+	mousepos = p;
 }
 
 void gCanvas::mousePressed(int x, int y, int button) {

@@ -7,6 +7,7 @@
 
 #include "gBaseCanvas.h"
 #include "gApp.h"
+#include "gAudio.h"
 #include "gFont.h"
 #include "gImage.h"
 
@@ -69,6 +70,7 @@ private:
 
 	void fitUnits();
 	bool isOnScreen(const glm::vec2& p);
+	bool isOnMuteButton(float x, float y);
 	void startGame();
 	void killPlayer();
 	void confirmPressed();
@@ -85,12 +87,14 @@ private:
 	void drawEnemies(float ox, float oy);
 	void drawShip(float ox, float oy);
 	void drawHud();
+	void drawMuteButton();
 	void drawPolyGlow(float x, float y, float radius, int sides, float angle, int color, float alphascale);
 	void drawCenteredText(gFont& font, const std::string& text, float y);
 
 	gApp* root;
 	gFont uifont, midfont, titlefont;
 	gImage logo;
+	gAudio audio;
 
 	int state;
 	float gametime, statetime;

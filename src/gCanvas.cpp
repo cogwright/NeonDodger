@@ -25,6 +25,13 @@ static const float BOOT_FADEIN = 0.5f;
 static const float BOOT_FADEOUT = 2.4f;
 static const float BOOT_END = 3.0f;
 
+// mute toggle in the top right corner, in world units
+static const float MUTE_SIZE = 30.0f;
+static const float MUTE_MARGIN = 22.0f;
+static const float MUTE_TOP = 54.0f;
+// fingers are wider than the icon
+static const float MUTE_TOUCH_PAD = 14.0f;
+
 // virtual joystick, in world units
 static const float JOY_RADIUS = 100.0f;
 static const float JOY_KNOB = 30.0f;
@@ -70,18 +77,28 @@ bool gCanvas::isOnScreen(const glm::vec2& p) {
 	       p.y > -20.0f && p.y < getHeight() + 20.0f;
 }
 
+bool gCanvas::isOnMuteButton(float x, float y) {
+	if (state == STATE_BOOT) return false;
+	return x >= getWidth() - MUTE_MARGIN - MUTE_SIZE - MUTE_TOUCH_PAD &&
+	       x <= getWidth() - MUTE_MARGIN + MUTE_TOUCH_PAD &&
+	       y >= MUTE_TOP - MUTE_TOUCH_PAD &&
+	       y <= MUTE_TOP + MUTE_SIZE + MUTE_TOUCH_PAD;
+}
+
 void gCanvas::setup() {
 	fitUnits();
 	uifont.loadFont("FreeSansBold.ttf", 18);
 	midfont.loadFont("FreeSansBold.ttf", 28);
 	titlefont.loadFont("FreeSansBold.ttf", 64);
 	logo.loadImage("glistengine_logo.png");
+	audio.setup();
 	playerpos = glm::vec2(getWidth() / 2.0f, getHeight() / 2.0f);
 	playervel = glm::vec2(0.0f);
 	mousepos = playerpos;
 }
 
 void gCanvas::startGame() {
+	audio.play(gAudio::SFX_START);
 	state = STATE_PLAYING;
 	statetime = 0.0f;
 	gametime = 0.0f;
@@ -105,6 +122,7 @@ void gCanvas::startGame() {
 }
 
 void gCanvas::killPlayer() {
+	audio.play(gAudio::SFX_DEATH);
 	best = std::max(best, score);
 	state = STATE_GAMEOVER;
 	statetime = 0.0f;
@@ -117,6 +135,7 @@ void gCanvas::confirmPressed() {
 	if (state == STATE_BOOT) {
 		state = STATE_TITLE;
 		statetime = 0.0f;
+		audio.startMusic();
 	} else if (state == STATE_TITLE) {
 		startGame();
 	} else if (state == STATE_GAMEOVER && statetime > 0.6f) {
@@ -134,6 +153,7 @@ void gCanvas::update() {
 		if (statetime >= BOOT_END) {
 			state = STATE_TITLE;
 			statetime = 0.0f;
+			audio.startMusic();
 		}
 		return;
 	}
@@ -246,6 +266,7 @@ void gCanvas::updateShooting(float dt) {
 	b.life = 1.2f;
 	bullets.push_back(b);
 	spawnBurst(b.pos, 0, 2, 60.0f, 1.8f);
+	audio.play(gAudio::SFX_SHOOT);
 	firetimer = 0.14f;
 }
 
@@ -341,12 +362,14 @@ void gCanvas::updateWorld(float dt) {
 				dead = true;
 				e.hp--;
 				if (e.hp <= 0) {
+					audio.play(gAudio::SFX_EXPLODE);
 					spawnBurst(e.pos, ENEMY_COLOR[e.type], 30, 260.0f, 2.8f);
 					killscore += ENEMY_SCORE[e.type];
 					shake = std::max(shake, 5.0f);
 					enemies[j] = enemies.back();
 					enemies.pop_back();
 				} else {
+					audio.play(gAudio::SFX_HIT);
 					spawnBurst(b.pos, ENEMY_COLOR[e.type], 5, 120.0f, 2.0f);
 				}
 				break;
@@ -611,6 +634,8 @@ void gCanvas::drawHud() {
 	float cx = getWidth() / 2.0f;
 	float cy = getHeight() / 2.0f;
 
+	drawMuteButton();
+
 	if (state == STATE_PLAYING) {
 		setColor(220, 245, 255, 235);
 		uifont.drawText("SCORE " + std::to_string(score), 24.0f, 38.0f);
@@ -631,7 +656,7 @@ void gCanvas::drawHud() {
 		setColor(255, 255, 255, pulse);
 		drawCenteredText(midfont, "click or press SPACE to start", cy + 20.0f);
 		setColor(160, 190, 220, 190);
-		drawCenteredText(uifont, "mouse or WASD moves, click aims, SPACE auto-aims", cy + 70.0f);
+		drawCenteredText(uifont, "mouse or WASD moves, click aims, SPACE auto-aims, M mutes", cy + 70.0f);
 		drawCenteredText(uifont, "on touch: first finger steers, second finger fires at the nearest enemy", cy + 96.0f);
 		if (best > 0) {
 			setColor(220, 245, 255, 220);
@@ -652,6 +677,39 @@ void gCanvas::drawHud() {
 	}
 }
 
+// A speaker in a rounded box, cyan while sound is on and dimmed with a cross
+// through it when it is off. Touch players have no M key, so this is the only
+// way to silence the game on a phone.
+void gCanvas::drawMuteButton() {
+	bool on = !audio.isMuted();
+	const int* c = PALETTE[on ? 0 : 4];
+	int alpha = on ? 170 : 90;
+	float x = getWidth() - MUTE_MARGIN - MUTE_SIZE;
+	float y = MUTE_TOP;
+
+	setColor(c[0], c[1], c[2], alpha / 4);
+	gDrawRoundedRectangle(x, y, MUTE_SIZE, MUTE_SIZE, 5, true);
+	setColor(c[0], c[1], c[2], alpha);
+	gDrawRoundedRectangle(x, y, MUTE_SIZE, MUTE_SIZE, 5, false);
+
+	// Speaker: a box with the cone flaring out of it, then either two waves or
+	// a cross where the waves would be. sx is the middle of the speaker itself,
+	// so the glyph runs from sx - 7 to sx + 9 and sits centered in the box.
+	float sx = x + MUTE_SIZE / 2.0f - 1.0f;
+	float sy = y + MUTE_SIZE / 2.0f;
+	gDrawRectangle(sx - 7.0f, sy - 3.0f, 5.0f, 6.0f, true);
+	gDrawTriangle(sx - 2.0f, sy - 3.0f, sx - 2.0f, sy + 3.0f, sx + 2.0f, sy + 7.0f, true);
+	gDrawTriangle(sx - 2.0f, sy - 3.0f, sx + 2.0f, sy + 7.0f, sx + 2.0f, sy - 7.0f, true);
+	if (on) {
+		// one wave, not two: at this size a second one merges into the first
+		gDrawLine(sx + 5.5f, sy - 4.5f, sx + 8.5f, sy, 2.0f);
+		gDrawLine(sx + 8.5f, sy, sx + 5.5f, sy + 4.5f, 2.0f);
+	} else {
+		gDrawLine(sx + 5.0f, sy - 5.0f, sx + 10.0f, sy + 5.0f, 2.0f);
+		gDrawLine(sx + 10.0f, sy - 5.0f, sx + 5.0f, sy + 5.0f, 2.0f);
+	}
+}
+
 void gCanvas::keyPressed(int key) {
 	// the keyboard takes over steering until the cursor is moved again
 	if (key == G_KEY_A || key == G_KEY_W || key == G_KEY_S || key == G_KEY_D ||
@@ -662,6 +720,7 @@ void gCanvas::keyPressed(int key) {
 	else if (key == G_KEY_D || key == G_KEY_RIGHT) keyright = true;
 	else if (key == G_KEY_W || key == G_KEY_UP) keyup = true;
 	else if (key == G_KEY_S || key == G_KEY_DOWN) keydown = true;
+	else if (key == G_KEY_M) audio.setMuted(!audio.isMuted());
 	else if (key == G_KEY_SPACE) {
 		if (state == STATE_PLAYING) firekey = true;
 		else confirmPressed();
@@ -698,6 +757,10 @@ void gCanvas::mouseDragged(int x, int y, int button) {
 void gCanvas::mousePressed(int x, int y, int button) {
 	if (touchmode) return;
 	mousepos = glm::vec2(x, y);
+	if (isOnMuteButton(x, y)) {
+		audio.setMuted(!audio.isMuted());
+		return;
+	}
 	if (state == STATE_PLAYING) firemouse = true;
 	else confirmPressed();
 }
@@ -727,6 +790,10 @@ void gCanvas::touchMoved(int x, int y, int fingerId) {
 void gCanvas::touchPressed(int x, int y, int fingerId) {
 	touchmode = true;
 	firemouse = firekey = false;
+	if (isOnMuteButton(x, y)) {
+		audio.setMuted(!audio.isMuted());
+		return;
+	}
 	if (state != STATE_PLAYING) {
 		confirmPressed();
 		return;

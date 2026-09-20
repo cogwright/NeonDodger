@@ -74,10 +74,6 @@ install_packages
 mkdir -p "$GLIST_ROOT" "$GLIST_PLUGINS_DIR"
 clone_or_keep https://github.com/GlistEngine/GlistEngine.git "$GLIST_ENGINE_DIR" "$GLIST_ENGINE_REF" plain
 clone_or_keep https://github.com/GlistPlugins/gipWebGL.git "$GLIST_PLUGINS_DIR/gipWebGL" "$GLIST_PLUGIN_REF" recursive
-# gipWebGL commits its prebuilt shader tools without the executable bit, so a
-# fresh clone dies at the first generated header with "Permission denied".
-chmod +x "$GLIST_PLUGINS_DIR"/gipWebGL/tools/GlistShaderToHeader-* 2>/dev/null || true
-
 install_emsdk
 glist_mirror_app
 glist_say "mirrored $GLIST_APP_WORKSPACE_DIR -> $GLIST_APP_DIR"

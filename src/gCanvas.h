@@ -69,6 +69,7 @@ private:
 	};
 
 	void fitUnits();
+	void fitToPage();
 	bool isOnScreen(const glm::vec2& p);
 	bool isOnMuteButton(float x, float y);
 	void startGame();

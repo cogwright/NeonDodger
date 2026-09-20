@@ -191,6 +191,37 @@ try {
 	const unmuted = await stats(page);
 	check(unmuted.peak > 0.01, `M again brings it back (peak ${unmuted.peak.toFixed(3)})`);
 
+	// A phone sized viewport with a retina scale factor, which is where canvas
+	// sizing goes wrong: Emscripten pins the engine's window size onto the
+	// element with an !important inline style, so a canvas that does not follow
+	// the page hangs off the screen at several times the size it should be.
+	const phone = await browser.newContext({
+		viewport: { width: 390, height: 844 },
+		deviceScaleFactor: 3,
+		isMobile: true,
+		hasTouch: true,
+	});
+	const phonepage = await phone.newPage();
+	await phonepage.goto(target, { waitUntil: 'domcontentloaded' });
+	await phonepage.waitForFunction(() => document.getElementById('loader')?.classList.contains('hidden'), null, {
+		timeout: 120000,
+	});
+	await sleep(4500);
+	const layout = await phonepage.evaluate(() => {
+		const canvas = document.getElementById('canvas');
+		const box = canvas.getBoundingClientRect();
+		return {
+			css: [Math.round(box.width), Math.round(box.height)],
+			viewport: [window.innerWidth, window.innerHeight],
+			overflow: document.body.scrollWidth - document.documentElement.clientWidth,
+		};
+	});
+	await shot(phonepage, 'phone');
+	check(Math.abs(layout.css[0] - layout.viewport[0]) <= 1 && Math.abs(layout.css[1] - layout.viewport[1]) <= 1,
+		`canvas matches the viewport on a phone (canvas ${layout.css.join('x')}, viewport ${layout.viewport.join('x')})`);
+	check(layout.overflow <= 0, `nothing overflows the phone viewport (${layout.overflow}px overflow)`);
+	await phone.close();
+
 	// Only uncaught exceptions are treated as failures. The engine writes plenty
 	// of ordinary diagnostics to stderr, which arrive here as console errors.
 	const crashes = logs.filter((line) => line.startsWith('pageerror'));

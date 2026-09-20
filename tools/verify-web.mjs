@@ -21,6 +21,8 @@ const { chromium } = loaded.chromium ? loaded : loaded.default;
 const DIST = resolve(process.env.DIST_DIR ?? 'dist');
 const ARTIFACTS = resolve(process.env.ARTIFACTS_DIR ?? 'artifacts');
 const PORT = Number(process.env.PORT ?? 8175);
+// Set BASE_URL to check a deployed site instead of the local dist.
+const BASE_URL = process.env.BASE_URL ?? '';
 const HEADFUL = process.env.HEADFUL === '1';
 
 const TYPES = {
@@ -113,7 +115,8 @@ const check = (ok, message) => {
 	if (!ok) failures.push(message);
 };
 
-const server = await serve();
+const server = BASE_URL ? null : await serve();
+const target = BASE_URL || `http://127.0.0.1:${PORT}/`;
 await mkdir(ARTIFACTS, { recursive: true });
 
 const browser = await chromium.launch({
@@ -132,7 +135,8 @@ page.on('pageerror', (error) => logs.push(`pageerror: ${error.message}`));
 await page.addInitScript(INSTRUMENT);
 
 try {
-	await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'domcontentloaded' });
+	console.log(`checking ${target}`);
+	await page.goto(target, { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => document.getElementById('loader')?.classList.contains('hidden'), null, {
 		timeout: 120000,
 	});
@@ -194,7 +198,7 @@ try {
 } finally {
 	if (process.env.VERBOSE === '1') console.log(logs.join('\n'));
 	await browser.close();
-	server.close();
+	server?.close();
 }
 
 console.log(`screenshots in ${ARTIFACTS}`);

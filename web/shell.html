@@ -169,6 +169,18 @@
 	document.addEventListener('fullscreenchange', function() {
 		document.body.classList.toggle('fs', !!document.fullscreenElement);
 	});
+
+	// Browsers hold a new AudioContext suspended until the page sees a gesture,
+	// and miniaudio only listens for click and touchend. A player who starts
+	// with SPACE would get a silent game, so resume on key presses too.
+	document.addEventListener('keydown', function() {
+		var ma = window.miniaudio;
+		if (!ma || !ma.devices) return;
+		for (var i = 0; i < ma.devices.length; i++) {
+			var d = ma.devices[i];
+			if (d && d.webaudio && d.webaudio.state === 'suspended') d.webaudio.resume();
+		}
+	}, true);
 </script>
 {{{ SCRIPT }}}
 </body>

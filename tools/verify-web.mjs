@@ -20,7 +20,9 @@ const { chromium } = loaded.chromium ? loaded : loaded.default;
 
 const DIST = resolve(process.env.DIST_DIR ?? 'dist');
 const ARTIFACTS = resolve(process.env.ARTIFACTS_DIR ?? 'artifacts');
-const PORT = Number(process.env.PORT ?? 8175);
+// 0 lets the OS pick a free port, so a server left behind by an interrupted
+// run cannot make the next one die with EADDRINUSE.
+const PORT = Number(process.env.PORT ?? 0);
 // Set BASE_URL to check a deployed site instead of the local dist.
 const BASE_URL = process.env.BASE_URL ?? '';
 const HEADFUL = process.env.HEADFUL === '1';
@@ -116,7 +118,7 @@ const check = (ok, message) => {
 };
 
 const server = BASE_URL ? null : await serve();
-const target = BASE_URL || `http://127.0.0.1:${PORT}/`;
+const target = BASE_URL || `http://127.0.0.1:${server.address().port}/`;
 await mkdir(ARTIFACTS, { recursive: true });
 
 const browser = await chromium.launch({

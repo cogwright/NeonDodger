@@ -18,10 +18,23 @@
 #include "gAppManager.h"
 #include "gApp.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 
 int main(int argc, char **argv) {
+	int width = 1280, height = 720;
+#ifdef __EMSCRIPTEN__
+	// Start at the size of the page. Emscripten pins whatever size the engine
+	// asks for onto the canvas element as an !important inline style, so a
+	// desktop sized window would hang off the side of a phone screen until the
+	// first resize landed. gCanvas keeps it in step after this.
+	width = EM_ASM_INT({ return window.innerWidth; });
+	height = EM_ASM_INT({ return window.innerHeight; });
+#endif
 
-	gStartEngine(new gApp(argc, argv), "Neon Dodger", G_WINDOWMODE_APP, 1280, 720, G_SCREENSCALING_AUTO, 1280, 720);
+	gStartEngine(new gApp(argc, argv), "Neon Dodger", G_WINDOWMODE_APP, width, height, G_SCREENSCALING_AUTO, 1280, 720);
 
 	return 0;
 }

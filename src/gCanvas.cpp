@@ -5,6 +5,13 @@
 
 #include "gRenderer.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
+
+#include "gAppManager.h"
+#endif
+
 static const float PI2 = 6.2831853f;
 
 // r, g, b per palette slot
@@ -20,6 +27,10 @@ static const int ENEMY_COLOR[] = {1, 2, 3};
 static const int ENEMY_SIDES[] = {3, 4, 6};
 static const int ENEMY_HP[] = {2, 2, 6};
 static const int ENEMY_SCORE[] = {20, 30, 100};
+
+// Narrowest the world is allowed to get, in units. The widest thing the HUD
+// draws is the touch hint line, at a little over 700.
+static const int MIN_UNIT_WIDTH = 900;
 
 static const float BOOT_FADEIN = 0.5f;
 static const float BOOT_FADEOUT = 2.4f;
@@ -64,12 +75,36 @@ gCanvas::~gCanvas() {
 // Fixed logical height: everyone sees the same 720 world units vertically,
 // wider screens see proportionally more world horizontally. Rendering stays
 // at native resolution, only the coordinate system is logical.
+//
+// A phone held upright is the exception. At 720 units tall it is only about 330
+// units across, which is narrower than the title, the control hints and the
+// boot logo, so below MIN_UNIT_WIDTH the world is sized by its width instead
+// and gets taller rather than wider.
 void gCanvas::fitUnits() {
 	float pw = (float)renderer->getScreenWidth();
 	float ph = (float)renderer->getScreenHeight();
 	if (pw <= 0.0f || ph <= 0.0f) return;
 	int unitw = (int)std::round(720.0f * pw / ph);
-	renderer->setUnitScreenSize(unitw, 720);
+	int unith = 720;
+	if (unitw < MIN_UNIT_WIDTH) {
+		unitw = MIN_UNIT_WIDTH;
+		unith = (int)std::round(MIN_UNIT_WIDTH * ph / pw);
+	}
+	renderer->setUnitScreenSize(unitw, unith);
+}
+
+// The browser window is the only display the game has on the web, so the
+// drawing surface follows it: on rotation, on a resized window, and on the way
+// in, since the engine's own idea of its size is whatever it was started with.
+// Without this a phone gets a canvas the size of a desktop window and the game
+// runs off the edge of the screen.
+void gCanvas::fitToPage() {
+#ifdef __EMSCRIPTEN__
+	int w = EM_ASM_INT({ return window.innerWidth; });
+	int h = EM_ASM_INT({ return window.innerHeight; });
+	if (w > 0 && h > 0) appmanager->setWindowSize(w, h);
+#endif
+	fitUnits();
 }
 
 bool gCanvas::isOnScreen(const glm::vec2& p) {
@@ -86,7 +121,14 @@ bool gCanvas::isOnMuteButton(float x, float y) {
 }
 
 void gCanvas::setup() {
-	fitUnits();
+#ifdef __EMSCRIPTEN__
+	emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, EM_FALSE,
+	                               [](int type, const EmscriptenUiEvent* event, void* canvas) -> EM_BOOL {
+		                               ((gCanvas*)canvas)->fitToPage();
+		                               return EM_TRUE;
+	                               });
+#endif
+	fitToPage();
 	uifont.loadFont("FreeSansBold.ttf", 18);
 	midfont.loadFont("FreeSansBold.ttf", 28);
 	titlefont.loadFont("FreeSansBold.ttf", 64);
@@ -511,7 +553,7 @@ void gCanvas::drawBoot() {
 		a = 1.0f;
 	}
 
-	float lw = 500.0f;
+	float lw = std::min(500.0f, getWidth() * 0.7f);
 	float lh = lw * logo.getHeight() / logo.getWidth();
 	float x = (getWidth() - lw) / 2.0f;
 	float y = (getHeight() - lh) / 2.0f + 10.0f;

@@ -1,0 +1,58 @@
+name: pages
+
+# Builds the Emscripten target and publishes dist/ to GitHub Pages.
+#
+# Pull requests build but never deploy, so a PR tells you whether the wasm still
+# links without touching the live site. The site itself needs Pages set to
+# "GitHub Actions" in the repository settings once, by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never let two deploys race, but let a build finish rather than cancelling it.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The engine and the plugins are cloned by the script, so the only thing
+      # worth caching is the toolchain: about a gigabyte of emsdk plus the ports
+      # emcc builds on first use.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/glist/emsdk
+            ~/.emscripten_cache
+          key: emsdk-${{ runner.os }}-${{ hashFiles('tools/glist-env.sh') }}
+          restore-keys: emsdk-${{ runner.os }}-
+
+      - name: Build for the web
+        run: tools/build-web.sh
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

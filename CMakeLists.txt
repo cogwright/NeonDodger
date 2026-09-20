@@ -111,6 +111,16 @@ else()
 	include(${ENGINE_DIR}/CMakeLists.txt)
 endif()
 
+# The engine keys all of its web code on a bare EMSCRIPTEN macro. The Emscripten
+# CMake toolchain used to define that and no longer does, only __EMSCRIPTEN__,
+# so without this gRenderer.h skips the GLES headers (every GLenum becomes an
+# unknown type) and gAppManager compiles the blocking desktop main loop instead
+# of emscripten_set_main_loop. PUBLIC so the app sees it too; scoped to the
+# target so the vendored assimp and freetype are not rebuilt for it.
+if(EMSCRIPTEN)
+	target_compile_definitions(GlistEngine PUBLIC EMSCRIPTEN)
+endif()
+
 ########## SOURCE FILES AND INCLUDE DIRECTORIES ##########
 
 set(GlistApp_SOURCES

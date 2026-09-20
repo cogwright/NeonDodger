@@ -66,8 +66,8 @@ def env_decay(t, dur, curve=3.0):
 def pulse(buf, start, dur, f0, f1, amp, duty=0.5, curve=3.0, levels=8, vibrato=0.0):
     """Pulse wave with an exponential frequency glide from f0 to f1.
 
-    levels quantizes the amplitude the way a 4 bit APU register would, which is
-    what keeps these from sounding like a modern synth.
+    levels quantizes the amplitude to a handful of steps, the way an APU volume
+    register would, which is what keeps these from sounding like a modern synth.
     """
     n = int(dur * RATE)
     i0 = int(start * RATE)

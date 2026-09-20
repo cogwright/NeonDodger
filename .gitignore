@@ -3,6 +3,10 @@ cmake-build-*/
 _build/
 compile_commands.json
 
+# tools/build-web.sh output and tools/verify-web.sh screenshots
+dist/
+artifacts/
+
 # IDE
 .idea/
 .vscode/
